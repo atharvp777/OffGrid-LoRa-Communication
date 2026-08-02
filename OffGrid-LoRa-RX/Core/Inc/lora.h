@@ -2,20 +2,23 @@
 #define INC_LORA_H_
 
 /* =========================================================
- * lora.h - LoRa (SX1278) Driver Header
- * Project: OffGrid LoRa Communication System
- * MCU: STM32F103C8T6
+ * lora.h — LoRa (SX1278) Driver Header
+ * Project: Long-Range Off-Grid Emergency Alert System
+ * MCU: STM32F103C8T6 (Blue Pill)
+ * Authors: Abhijeet Dalvi, Atharv Pawar, Bhushan Todkar
+ * Guide: Prof. S. L. Tatuskar
  * ========================================================= */
 
 #include "stm32f1xx_hal.h"
 #include <stdint.h>
 
+/* ----- SPI / LoRa pin definitions ----- */
 #define LORA_NSS_GPIO_Port      GPIOA
-#define LORA_NSS_Pin            GPIO_PIN_4
+#define LORA_NSS_Pin            GPIO_PIN_4   /* PA4 — SPI NSS  */
 #define LORA_RESET_GPIO_Port    GPIOB
-#define LORA_RESET_Pin          GPIO_PIN_0
+#define LORA_RESET_Pin          GPIO_PIN_0   /* PB0 — RESET    */
 #define LORA_DIO0_GPIO_Port     GPIOB
-#define LORA_DIO0_Pin           GPIO_PIN_1
+#define LORA_DIO0_Pin           GPIO_PIN_0   /* PB0 — DIO0     */
 
 #define LORA_SPI_TIMEOUT        100
 #define LORA_MAX_PACKET_SIZE    64

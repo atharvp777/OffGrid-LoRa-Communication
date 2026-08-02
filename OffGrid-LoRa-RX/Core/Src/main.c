@@ -45,6 +45,11 @@
 SPI_HandleTypeDef hspi1;
 
 /* USER CODE BEGIN PV */
+static uint8_t  rxBuffer[64];
+static uint8_t  rxLen;
+static char     oledLine[32];
+static int16_t  lastRSSI;
+static uint32_t pktCount = 0;
 static uint8_t  txBuffer[64];
 static uint8_t  txLen;
 static uint32_t packetCount = 0;
@@ -95,6 +100,35 @@ int main(void)
   MX_GPIO_Init();
   MX_SPI1_Init();
   /* USER CODE BEGIN 2 */
+  /* OLED Init */
+  ssd1306_Init();
+  ssd1306_Fill(Black);
+  ssd1306_SetCursor(0, 0);
+  ssd1306_WriteString("Node 2 Ready", Font_7x10, White);
+  ssd1306_SetCursor(0, 14);
+  ssd1306_WriteString("Waiting...", Font_7x10, White);
+  ssd1306_UpdateScreen();
+
+  /* LoRa Init */
+  if (LoRa_Init() != LORA_OK)
+  {
+    ssd1306_Fill(Black);
+    ssd1306_SetCursor(0, 20);
+    ssd1306_WriteString("LoRa FAIL!", Font_11x18, White);
+    ssd1306_UpdateScreen();
+    while (1) { HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13); HAL_Delay(100); }
+  }
+
+  /* Show ready */
+  ssd1306_Fill(Black);
+  ssd1306_SetCursor(0, 0);
+  ssd1306_WriteString("LoRa RX Ready", Font_7x10, White);
+  ssd1306_SetCursor(0, 14);
+  ssd1306_WriteString("433 MHz SF7", Font_7x10, White);
+  ssd1306_UpdateScreen();
+
+  /* Enter continuous receive */
+  LoRa_StartReceive();
   if (LoRa_Init() != LORA_OK)
   {
     while (1) { HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13); HAL_Delay(100); }
@@ -107,6 +141,46 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+    if (LoRa_PacketAvailable())
+    {
+      rxLen = LoRa_Receive(rxBuffer, sizeof(rxBuffer) - 1);
+      rxBuffer[rxLen] = '\0';
+      lastRSSI = LoRa_GetRSSI();
+      pktCount++;
+
+      /* Buzzer ON 500 ms */
+      HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_SET);
+      HAL_Delay(500);
+      HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_RESET);
+
+      /* Toggle status LED */
+      HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+
+      /* Update OLED display */
+      ssd1306_Fill(Black);
+
+      /* Line 1: "Received:" */
+      ssd1306_SetCursor(0, 0);
+      ssd1306_WriteString("Received:", Font_7x10, White);
+
+      /* Line 2: Message content e.g. "HELP:001" */
+      ssd1306_SetCursor(0, 12);
+      ssd1306_WriteString((char *)rxBuffer, Font_11x18, White);
+
+      /* Line 3: RSSI */
+      snprintf(oledLine, sizeof(oledLine), "RSSI:%ddBm", lastRSSI);
+      ssd1306_SetCursor(0, 38);
+      ssd1306_WriteString(oledLine, Font_7x10, White);
+
+      /* Line 4: Packet count */
+      snprintf(oledLine, sizeof(oledLine), "Pkts:%lu", pktCount);
+      ssd1306_SetCursor(0, 52);
+      ssd1306_WriteString(oledLine, Font_7x10, White);
+
+      ssd1306_UpdateScreen();
+    }
+
+    HAL_Delay(10);
     if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_RESET)
     {
       HAL_Delay(20);

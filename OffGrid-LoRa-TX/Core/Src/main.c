@@ -33,6 +33,12 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+/* Message types */
+#define MSG_HELP   "HELP"
+#define MSG_SAFE   "SAFE"
+
+/* Button debounce delay (ms) */
+#define DEBOUNCE_MS  20
 
 /* USER CODE END PD */
 
@@ -95,6 +101,21 @@ int main(void)
   MX_GPIO_Init();
   MX_SPI1_Init();
   /* USER CODE BEGIN 2 */
+  /* LoRa Init */
+  if (LoRa_Init() != LORA_OK)
+  {
+    /* Fast blink = LoRa chip not detected */
+    while (1) { HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13); HAL_Delay(100); }
+  }
+
+  /* Ready indication — slow blink PC13 twice */
+  for (int i = 0; i < 2; i++)
+  {
+    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
+    HAL_Delay(300);
+    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);
+    HAL_Delay(300);
+  }
   if (LoRa_Init() != LORA_OK)
   {
     while (1) { HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13); HAL_Delay(100); }
@@ -107,6 +128,56 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+    /* ── HELP button (PA0, active LOW with INPUT_PULLUP) ── */
+    if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_RESET)
+    {
+      HAL_Delay(DEBOUNCE_MS);
+      if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_RESET)
+      {
+        helpCount++;
+        /* Format: "HELP:001" or "HELP:001,GPS:18.5204,73.8567" */
+        txLen = (uint8_t)snprintf((char *)txBuffer, sizeof(txBuffer),
+                                  "HELP:%03lu", helpCount);
+
+        /* HELP LED ON, transmit, HELP LED OFF */
+        HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_SET);
+        HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
+        LoRa_Transmit(txBuffer, txLen);
+        HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);
+        HAL_Delay(500);
+        HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_RESET);
+
+        /* Wait for button release */
+        while (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_RESET)
+          HAL_Delay(10);
+      }
+    }
+
+    /* ── SAFE button (PB1, active LOW with INPUT_PULLUP) ── */
+    if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_1) == GPIO_PIN_RESET)
+    {
+      HAL_Delay(DEBOUNCE_MS);
+      if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_1) == GPIO_PIN_RESET)
+      {
+        safeCount++;
+        txLen = (uint8_t)snprintf((char *)txBuffer, sizeof(txBuffer),
+                                  "SAFE:%03lu", safeCount);
+
+        /* SAFE LED ON, transmit, SAFE LED OFF */
+        HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9, GPIO_PIN_SET);
+        HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
+        LoRa_Transmit(txBuffer, txLen);
+        HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);
+        HAL_Delay(500);
+        HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9, GPIO_PIN_RESET);
+
+        /* Wait for button release */
+        while (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_1) == GPIO_PIN_RESET)
+          HAL_Delay(10);
+      }
+    }
+
+    HAL_Delay(10);
     if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_RESET)
     {
       HAL_Delay(20);
