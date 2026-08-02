@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OffGrid LoRa — Live Simulation</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --border: #2e3250;
+    --accent: #3b82f6;
+    --green: #22c55e;
+    --amber: #f59e0b;
+    --red: #ef4444;
+    --purple: #a855f7;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --font: 'Segoe UI', system-ui, sans-serif;
+    --mono: 'Consolas', 'Courier New', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font); min-height: 100vh; }
+
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  header h1 { font-size: 16px; font-weight: 600; }
+  header p { font-size: 12px; color: var(--muted); }
+  .badge {
+    font-size: 11px; padding: 3px 10px; border-radius: 999px;
+    background: #1e3a5f; color: #60a5fa; font-weight: 500;
+  }
+  .badge.green { background: #14532d; color: #4ade80; }
+  .badge.amber { background: #78350f; color: #fbbf24; }
+
+  .container { max-width: 900px; margin: 0 auto; padding: 20px 16px; }
+
+  /* ── NODES ── */
+  .nodes { display: grid; grid-template-columns: 1fr 60px 1fr; gap: 0; margin-bottom: 16px; align-items: center; }
+
+  .node {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+  }
+  .node-title { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px; }
+  .node-name { font-size: 14px; font-weight: 600; margin-bottom: 12px; }
+
+  .pin-list { display: flex; flex-direction: column; gap: 5px; }
+  .pin { display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--muted); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); flex-shrink: 0; transition: background .25s, box-shadow .25s; }
+  .dot.on { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .dot.tx { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
+  .dot.rx { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+  .dot.alert { background: var(--red); box-shadow: 0 0 6px var(--red); }
+
+  /* ── RF CHANNEL ── */
+  .channel {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 6px;
+  }
+  .channel-label { font-size: 9px; color: var(--muted); text-align: center; }
+  #wave-svg { width: 54px; height: 28px; }
+
+  /* ── OLED ── */
+  .oled {
+    background: #000;
+    border: 2px solid #333;
+    border-radius: 6px;
+    padding: 8px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: #60b8ff;
+    min-height: 72px;
+    margin-top: 10px;
+    line-height: 1.6;
+  }
+  .oled .oled-big { font-size: 15px; font-weight: bold; letter-spacing: 1px; }
+
+  /* ── SF SELECTOR ── */
+  .controls-row {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 16px; margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  .controls-row label { font-size: 12px; color: var(--muted); }
+  select {
+    background: var(--surface2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 5px 10px; font-size: 12px; font-family: var(--font); cursor: pointer;
+  }
+  .sf-info { font-size: 11px; color: var(--muted); margin-left: auto; }
+
+  /* ── BUTTONS ── */
+  .btn-row { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+  button {
+    cursor: pointer; border-radius: 8px; padding: 9px 18px;
+    font-size: 13px; font-family: var(--font); font-weight: 500;
+    border: 1px solid var(--border); transition: all .15s;
+  }
+  .btn-help { background: #7f1d1d; color: #fca5a5; border-color: #991b1b; }
+  .btn-help:hover { background: #991b1b; }
+  .btn-safe { background: #14532d; color: #86efac; border-color: #166534; }
+  .btn-safe:hover { background: #166534; }
+  .btn-gps  { background: #1e3a5f; color: #93c5fd; border-color: #1d4ed8; }
+  .btn-gps:hover  { background: #1d4ed8; }
+  .btn-clear { background: transparent; color: var(--muted); }
+  .btn-clear:hover { color: var(--text); }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+
+  /* ── PACKET ANIMATION ── */
+  .pkt-track {
+    position: relative; height: 32px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 8px;
+    overflow: hidden; margin-bottom: 14px; display: none;
+  }
+  .pkt-bar {
+    position: absolute; top: 4px; height: 24px; border-radius: 6px;
+    display: flex; align-items: center; padding: 0 10px;
+    font-size: 11px; font-weight: 600; white-space: nowrap;
+    transition: left .05s linear;
+  }
+
+  /* ── METRICS ── */
+  .metrics { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 14px; }
+  .metric {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px; text-align: center;
+  }
+  .metric-val { font-size: 22px; font-weight: 700; }
+  .metric-label { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+  /* ── LOG ── */
+  .log {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px; max-height: 200px;
+    overflow-y: auto; font-family: var(--mono); font-size: 11px;
+  }
+  .log-line { display: flex; gap: 8px; padding: 3px 0; border-bottom: 1px solid var(--border); }
+  .log-line:last-child { border-bottom: none; }
+  .log-time { color: var(--muted); white-space: nowrap; flex-shrink: 0; }
+  .tag {
+    padding: 1px 6px; border-radius: 3px; font-size: 10px;
+    flex-shrink: 0; font-weight: 600;
+  }
+  .tag-tx   { background: #78350f; color: #fbbf24; }
+  .tag-rx   { background: #14532d; color: #4ade80; }
+  .tag-sys  { background: #1e3a5f; color: #60a5fa; }
+  .tag-err  { background: #450a0a; color: #f87171; }
+  .log-msg  { color: #94a3b8; }
+
+  /* ── FOOTER ── */
+  footer {
+    text-align: center; padding: 20px; font-size: 11px; color: var(--muted);
+    border-top: 1px solid var(--border); margin-top: 10px;
+  }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  @media (max-width: 600px) {
+    .nodes { grid-template-columns: 1fr; }
+    .channel { display: none; }
+    .metrics { grid-template-columns: repeat(2,1fr); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>OffGrid LoRa — Live System Simulation</h1>
+    <p>Long-Range, Off-Grid Emergency Alert System · STM32F103C8T6 + SX1278 · 433 MHz</p>
+  </div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap">
+    <span class="badge">433 MHz</span>
+    <span class="badge green" id="sys-badge">System Ready</span>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- NODES -->
+  <div class="nodes">
+
+    <!-- TX NODE -->
+    <div class="node">
+      <div class="node-title">Transmitter · Node 1</div>
+      <div class="node-name">Blue Pill TX</div>
+      <div class="pin-list">
+        <div class="pin"><div class="dot" id="d-help-btn"></div>HELP Button (PA0)</div>
+        <div class="pin"><div class="dot" id="d-safe-btn"></div>SAFE Button (PB1)</div>
+        <div class="pin"><div class="dot" id="d-tx-spi"></div>SPI1 → LoRa NSS (PA4)</div>
+        <div class="pin"><div class="dot" id="d-tx-rst"></div>LORA_RESET (PB0)</div>
+        <div class="pin"><div class="dot" id="d-gps"></div>GPS NEO-6M (PA3 UART2)</div>
+        <div class="pin"><div class="dot" id="d-help-led"></div>HELP LED (PA8)</div>
+        <div class="pin"><div class="dot" id="d-safe-led"></div>SAFE LED (PA9)</div>
+        <div class="pin"><div class="dot" id="d-tx-led"></div>Status LED (PC13)</div>
+      </div>
+    </div>
+
+    <!-- RF CHANNEL -->
+    <div class="channel">
+      <svg id="wave-svg" viewBox="0 0 54 28" preserveAspectRatio="none">
+        <path id="wave-path" d="M0 14 Q7 14 14 14 Q21 14 27 14 Q33 14 40 14 Q47 14 54 14"
+          fill="none" stroke="#2e3250" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      <div class="channel-label" id="chan-label">idle</div>
+      <div class="channel-label" id="rssi-label">—</div>
+    </div>
+
+    <!-- RX NODE -->
+    <div class="node">
+      <div class="node-title">Receiver · Node 2</div>
+      <div class="node-name">Blue Pill RX</div>
+      <div class="pin-list">
+        <div class="pin"><div class="dot" id="d-rx-spi"></div>SPI1 ← LoRa</div>
+        <div class="pin"><div class="dot" id="d-rx-dio"></div>DIO0 IRQ (PB0)</div>
+        <div class="pin"><div class="dot" id="d-buzzer"></div>Buzzer (PB9)</div>
+        <div class="pin"><div class="dot" id="d-oled"></div>OLED I2C (PB6/PB7)</div>
+        <div class="pin"><div class="dot" id="d-rx-led"></div>Status LED (PC13)</div>
+      </div>
+      <!-- OLED display -->
+      <div class="oled" id="oled-display">
+        <div>Node 2 Ready</div>
+        <div>Waiting...</div>
+        <div style="margin-top:4px;color:#2a6aad">433MHz SF7</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SF SELECTOR -->
+  <div class="controls-row">
+    <label>Spreading Factor</label>
+    <select id="sf-sel" onchange="updateSF()">
+      <option value="7">SF7 — 5.5 kbps · ~2 km</option>
+      <option value="9">SF9 — 1.4 kbps · ~6 km</option>
+      <option value="12">SF12 — 0.3 kbps · ~15 km</option>
+    </select>
+    <div class="sf-info" id="sf-info">Airtime ~55 ms · Range ~2 km</div>
+  </div>
+
+  <!-- BUTTONS -->
+  <div class="btn-row">
+    <button class="btn-help" id="btn-help" onclick="send('HELP')">🆘 Press HELP (PA0)</button>
+    <button class="btn-safe" id="btn-safe" onclick="send('SAFE')">✅ Press SAFE (PB1)</button>
+    <button class="btn-gps"  id="btn-gps"  onclick="send('GPS')">📡 Send GPS Packet</button>
+    <button class="btn-clear" onclick="clearLog()">Clear log</button>
+  </div>
+
+  <!-- PACKET ANIMATION -->
+  <div class="pkt-track" id="pkt-track">
+    <div class="pkt-bar" id="pkt-bar"></div>
+  </div>
+
+  <!-- METRICS -->
+  <div class="metrics">
+    <div class="metric">
+      <div class="metric-val" id="m-tx" style="color:var(--amber)">0</div>
+      <div class="metric-label">Packets sent</div>
+    </div>
+    <div class="metric">
+      <div class="metric-val" id="m-rx" style="color:var(--green)">0</div>
+      <div class="metric-label">Packets received</div>
+    </div>
+    <div class="metric">
+      <div class="metric-val" id="m-rssi" style="color:var(--accent)">—</div>
+      <div class="metric-label">Last RSSI (dBm)</div>
+    </div>
+    <div class="metric">
+      <div class="metric-val" id="m-uptime" style="color:var(--purple)">0s</div>
+      <div class="metric-label">Uptime</div>
+    </div>
+  </div>
+
+  <!-- LOG -->
+  <div class="log" id="log"></div>
+
+</div>
+
+<footer>
+  OffGrid LoRa Communication System ·
+  Abhijeet Dalvi · Atharv Pawar · Bhushan Todkar ·
+  Modern College of Engineering, Pune · 2025-26 ·
+  <a href="https://github.com/atharvp777/OffGrid-LoRa-Communication" target="_blank">GitHub Repo</a>
+</footer>
+
+<script>
+const SF = {
+  7:  { airtime: 55,   range: 2,  dr: '5.5 kbps' },
+  9:  { airtime: 180,  range: 6,  dr: '1.4 kbps' },
+  12: { airtime: 1480, range: 15, dr: '0.3 kbps' },
+};
+const RSSI_POOL = [-78,-87,-92,-95,-103,-84,-110,-88,-76,-98];
+let sf = 7, txCount = 0, rxCount = 0, waveAnim = null, busy = false;
+const startTime = Date.now();
+
+function ts() {
+  const n = new Date();
+  return n.toTimeString().slice(0,8);
+}
+
+function dot(id, cls) {
+  const d = document.getElementById(id);
+  if (!d) return;
+  d.className = 'dot ' + cls;
+  setTimeout(() => d.className = 'dot', 700);
+}
+
+function addLog(tag, tagCls, msg) {
+  const l = document.getElementById('log');
+  const row = document.createElement('div');
+  row.className = 'log-line';
+  row.innerHTML = `<span class="log-time">${ts()}</span><span class="tag ${tagCls}">${tag}</span><span class="log-msg">${msg}</span>`;
+  l.appendChild(row);
+  l.scrollTop = l.scrollHeight;
+}
+
+function clearLog() { document.getElementById('log').innerHTML = ''; }
+
+function updateSF() {
+  sf = parseInt(document.getElementById('sf-sel').value);
+  const c = SF[sf];
+  document.getElementById('sf-info').textContent = `Airtime ~${c.airtime} ms · Range ~${c.range} km`;
+  addLog('SYS','tag-sys',`SF changed to SF${sf} — ${c.dr}, range ~${c.range} km, airtime ${c.airtime} ms`);
+}
+
+function animWave(color) {
+  if (waveAnim) cancelAnimationFrame(waveAnim);
+  const path = document.getElementById('wave-path');
+  let t = 0;
+  function frame() {
+    t += 0.18;
+    let d = 'M0 14';
+    for (let x = 0; x <= 54; x += 3) {
+      const y = 14 + 5 * Math.sin(0.5 * x - t) * Math.exp(-Math.abs(x-27)/14);
+      d += ` L${x} ${Math.round(y*10)/10}`;
+    }
+    path.setAttribute('d', d);
+    path.setAttribute('stroke', color);
+    waveAnim = requestAnimationFrame(frame);
+  }
+  frame();
+}
+
+function stopWave() {
+  if (waveAnim) cancelAnimationFrame(waveAnim);
+  const path = document.getElementById('wave-path');
+  path.setAttribute('d','M0 14 Q7 14 14 14 Q21 14 27 14 Q33 14 40 14 Q47 14 54 14');
+  path.setAttribute('stroke','#2e3250');
+}
+
+function animPacket(label, bgColor, textColor, onDone) {
+  const track = document.getElementById('pkt-track');
+  const bar   = document.getElementById('pkt-bar');
+  track.style.display = 'block';
+  bar.textContent = label;
+  bar.style.background = bgColor;
+  bar.style.color = textColor;
+  bar.style.left = '-220px';
+  const dur = SF[sf].airtime;
+  const steps = 60;
+  const stepMs = Math.max(dur / steps, 8);
+  let step = 0;
+  function move() {
+    step++;
+    bar.style.left = Math.round(-220 + (step / steps) * 820) + 'px';
+    if (step < steps) setTimeout(move, stepMs);
+    else { setTimeout(() => { track.style.display='none'; onDone(); }, 200); }
+  }
+  move();
+}
+
+function setOled(lines) {
+  const oled = document.getElementById('oled-display');
+  oled.innerHTML = lines.map((l, i) =>
+    i === 1 ? `<div class="oled-big">${l}</div>` : `<div>${l}</div>`
+  ).join('');
+}
+
+function updateMetrics() {
+  document.getElementById('m-tx').textContent = txCount;
+  document.getElementById('m-rx').textContent = rxCount;
+  const up = Math.floor((Date.now() - startTime) / 1000);
+  document.getElementById('m-uptime').textContent = up < 60 ? up+'s' : Math.floor(up/60)+'m '+up%60+'s';
+}
+
+function send(type) {
+  if (busy) return;
+  busy = true;
+  ['btn-help','btn-safe','btn-gps'].forEach(id => {
+    const b = document.getElementById(id);
+    if (b) b.disabled = true;
+  });
+
+  txCount++;
+  updateMetrics();
+
+  let payload, helpOrSafe;
+  if (type === 'HELP') {
+    payload = `HELP:${String(txCount).padStart(3,'0')}`;
+    helpOrSafe = 'HELP';
+    dot('d-help-btn','on'); dot('d-help-led','tx');
+  } else if (type === 'SAFE') {
+    payload = `SAFE:${String(txCount).padStart(3,'0')}`;
+    helpOrSafe = 'SAFE';
+    dot('d-safe-btn','on'); dot('d-safe-led','tx');
+  } else {
+    const lat = (18.5204 + Math.random()*0.002).toFixed(4);
+    const lon = (73.8567 + Math.random()*0.002).toFixed(4);
+    payload = `GPS:${lat},${lon}`;
+    helpOrSafe = null;
+    dot('d-gps','on');
+  }
+
+  dot('d-tx-spi','tx'); dot('d-tx-led','tx');
+  document.getElementById('sys-badge').textContent = 'TX Active';
+  document.getElementById('sys-badge').className = 'badge amber';
+  document.getElementById('chan-label').textContent = 'transmitting';
+  addLog('TX','tag-tx',`LoRa_Transmit("${payload}", ${payload.length} bytes, SF${sf})`);
+  animWave('#f59e0b');
+
+  const bgColor = type === 'HELP' ? '#7f1d1d' : type === 'SAFE' ? '#14532d' : '#1e3a5f';
+  const txtColor = type === 'HELP' ? '#fca5a5' : type === 'SAFE' ? '#86efac' : '#93c5fd';
+
+  animPacket(payload, bgColor, txtColor, () => {
+    stopWave();
+    const drop = Math.random() < 0.04;
+    if (drop) {
+      addLog('ERR','tag-err','Packet lost — path loss exceeded link budget');
+      document.getElementById('chan-label').textContent = 'lost';
+    } else {
+      rxCount++;
+      const rssi = RSSI_POOL[Math.floor(Math.random()*RSSI_POOL.length)];
+      document.getElementById('m-rssi').textContent = rssi;
+      document.getElementById('rssi-label').textContent = `RSSI ${rssi} dBm`;
+      document.getElementById('chan-label').textContent = 'RX done';
+      dot('d-rx-spi','rx'); dot('d-rx-dio','rx'); dot('d-oled','rx');
+      if (helpOrSafe) dot('d-buzzer','alert');
+      dot('d-rx-led','on');
+      addLog('RX','tag-rx',`LoRa_Receive() — "${payload}" | RSSI ${rssi} dBm | SF${sf} | ${SF[sf].airtime} ms airtime`);
+      if (helpOrSafe) addLog('RX','tag-rx',`PB9 HIGH (buzzer 500ms) — alert triggered`);
+
+      setOled([
+        'Received:',
+        helpOrSafe || payload.slice(0,8),
+        `RSSI:${rssi}dBm`,
+        `Pkts:${rxCount}`
+      ]);
+    }
+
+    updateMetrics();
+    document.getElementById('sys-badge').textContent = 'Listening';
+    document.getElementById('sys-badge').className = 'badge green';
+    setTimeout(() => {
+      document.getElementById('chan-label').textContent = 'idle';
+      busy = false;
+      ['btn-help','btn-safe','btn-gps'].forEach(id => {
+        const b = document.getElementById(id);
+        if (b) b.disabled = false;
+      });
+    }, 600);
+  });
+}
+
+// Uptime ticker
+setInterval(updateMetrics, 1000);
+
+// Boot log
+addLog('SYS','tag-sys','LoRa_Init() — hardware reset PB0');
+addLog('SYS','tag-sys','REG_VERSION = 0x12 ✓ — SX1278 detected');
+addLog('SYS','tag-sys','Frequency: 433 MHz | BW: 125 kHz | PA: +17 dBm | Sync: 0x12');
+addLog('SYS','tag-sys','LoRa_StartReceive() → MODE_RX_CONTINUOUS');
+addLog('SYS','tag-sys','Node 2 ready — press HELP or SAFE to transmit');
+</script>
+</body>
+</html>
