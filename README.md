@@ -1,6 +1,6 @@
 # OffGrid LoRa Emergency Communication System
 
-![STM32](https://img.shields.io/badge/MCU-STM32F103C8T6-blue?style=flat-square)
+## [? Live Simulation](https://atharvp777.github.io/OffGrid-LoRa-Communication/simulation.html)`n`n![STM32](https://img.shields.io/badge/MCU-STM32F103C8T6-blue?style=flat-square)
 ![LoRa](https://img.shields.io/badge/RF-SX1278%20433MHz-green?style=flat-square)
 ![Range](https://img.shields.io/badge/Range-up%20to%2010km-orange?style=flat-square)
 ![Cost](https://img.shields.io/badge/Cost-%E2%82%B92%2C558-lightgrey?style=flat-square)
