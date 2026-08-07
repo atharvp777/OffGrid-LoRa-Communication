@@ -1,6 +1,7 @@
 # OffGrid LoRa Emergency Communication System
 
-## [? Live Simulation](https://atharvp777.github.io/OffGrid-LoRa-Communication/simulation.html)`n`n![STM32](https://img.shields.io/badge/MCU-STM32F103C8T6-blue?style=flat-square)
+## [ Live Simulation ](https://atharvp777.github.io/OffGrid-LoRa-Communication/simulation.html)
+![STM32](https://img.shields.io/badge/MCU-STM32F103C8T6-blue?style=flat-square)
 ![LoRa](https://img.shields.io/badge/RF-SX1278%20433MHz-green?style=flat-square)
 ![Range](https://img.shields.io/badge/Range-up%20to%2010km-orange?style=flat-square)
 ![Cost](https://img.shields.io/badge/Cost-%E2%82%B92%2C558-lightgrey?style=flat-square)
@@ -25,11 +26,11 @@ Designed for: disaster zones, trekking, forest operations, rural areas, search a
 ## System architecture
 
 ```
-NODE 1 — TRANSMITTER                        NODE 2 — RECEIVER
+NODE 1 — TRANSMITTER                                                              NODE 2 — RECEIVER
 
-[HELP Button PA0] ──┐                        ┌── [OLED SSD1306 I2C PB6/PB7]
-[SAFE Button PB1] ──┤                        ├── [Buzzer PB9]
-[GPS NEO-6M PA3]  ──┤── STM32 ──SPI──SX1278 ═══433MHz═══ SX1278──SPI──STM32 ──┤
+[HELP Button PA0] ──┐                                                           ┌── [OLED SSD1306 I2C PB6/PB7]
+[SAFE Button PB1] ──┤                                                           ├── [Buzzer PB9]
+[GPS NEO-6M PA3]  ──┤── STM32 ──SPI──SX1278 ═══433MHz═══ SX1278──SPI── STM32  ──┤
 [HELP LED PA8]    ──┤                                                           ├── [LED PC13]
 [SAFE LED PA9]    ──┘                                                           └── [Buttons PA0/PA2]
 ```
